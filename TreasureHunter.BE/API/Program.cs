@@ -41,30 +41,40 @@ app.MapGet("/weatherforecast", () =>
 .WithName("GetWeatherForecast")
 .WithOpenApi();
 
-app.MapPost("/api/treasure-map/calculate-route", ([FromBody] CalculateFastestRouteRequest request) =>
+app.MapPost("/api/treasure-map/calculate-route", double? ([FromBody] CalculateFastestRouteRequest request) =>
 {
     // TODO: validate
+
     var finalKey = request.P;
-    var islands = request.Matrix.SelectMany(MapToIslands);
-    var currentIsland = islands.First();
-    var currentKey = 0;
-    while (currentKey <= finalKey)
+    var islands = request.Matrix.SelectMany(MapToIslands).ToList();
+    List<Route> routes = [new Route(islands.First(), 0)];
+    for (int currentKey = 0; currentKey < finalKey; currentKey++)
     {
-        var nextPossibleIslands = islands.Where(island => island.TreasureChest == currentKey + 1);
-        if (nextPossibleIslands is null) return null;
-        // TODO: made a big mistake, it not that simple, thinking about using dynamic programing
-        nextPossibleIslands.Select(island => new { island, distance = CalDistance(island, currentIsland) })
-            .MinBy(e => e.distance);
+        if (routes.Count == 0) return null;
+        routes = islands
+            .Where(island => island.TreasureChest == currentKey + 1)
+            .Select(ShortestRoute)
+            .ToList();
     }
-    return request;
+    return routes.First().PassedDistance;
+
     IEnumerable<Island> MapToIslands(int[] row, int y)
-        => row.Select((int value, int x) => new Island(value, x, y));
+        => row.Select((int value, int x) => new Island(value, x + 1, y + 1));
+
     double CalDistance(Island island1, Island island2)
         => Math.Sqrt(Math.Pow(island1.X - island2.X, 2) + Math.Pow(island1.Y - island2.Y, 2));
+
+    Route ShortestRoute(Island nextIsland)
+        => routes
+            .Select(route => new Route(
+                nextIsland,
+                route.PassedDistance + CalDistance(route.CurrentIsland, nextIsland)))
+            .MinBy(route => route.PassedDistance)!;
+
 });
 
 app.Run();
-
+record Route(Island CurrentIsland, double PassedDistance);
 record Island(int TreasureChest, int X, int Y);
 record CalculateFastestRouteRequest
 {

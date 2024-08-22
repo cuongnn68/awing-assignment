@@ -10,10 +10,14 @@ Accept: application/json
 Content-Type: application/json
 
 {
-    "m": 3,
+    "m":3,
     "n":3,
-    "p":3,
-    "matrix": [[1,2,3]]
+    "p":12,
+    "matrix": [
+    [1, 2, 3, 4],
+    [8, 7, 6, 5],
+    [9, 10, 11, 12]
+    ]
 }
 
 ###
