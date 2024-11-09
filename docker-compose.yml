@@ -1,0 +1,13 @@
+# service data base with postgresql
+services:
+  db: 
+    image: postgres:16.4-bullseye
+    restart: always
+    shm_size: 128mb
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: somebody
+      POSTGRES_PASSWORD: 12345678
+    volumes:
+      - ./db_storage:/var/lib/postgresql/data
