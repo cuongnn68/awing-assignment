@@ -1,18 +1,30 @@
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
+
+using Infrastructure;
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+Console.WriteLine("yoooo");
+Console.WriteLine(builder.Configuration.GetConnectionString("TreasureHunter"));
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: "custom",
-                      policy => policy.WithOrigins(["http://localhost:5172", "http://localhost:5173"]).AllowAnyHeader().AllowAnyMethod());
+                      policy => policy
+                        .WithOrigins(["http://localhost:5172", "http://localhost:5173"])
+                        .AllowAnyHeader()
+                        .AllowAnyMethod());
+});
+builder.Services.AddDbContextPool<AppDbContext>(options =>
+{
+    options.UseNpgsql(builder.Configuration.GetConnectionString("TreasureHunter"));
 });
 
 var app = builder.Build();
@@ -27,10 +39,29 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+using var scope = app.Services.CreateAsyncScope();
+using var db = scope.ServiceProvider.GetService<AppDbContext>();
+
+if (db is null || await db.Database.CanConnectAsync())
+{
+    throw new Exception("Cant connect to database");
+}
+
+if((await db.Database.GetPendingMigrationsAsync()).Any()) 
+{
+    await db.Database.MigrateAsync();
+}
+
 var summaries = new[]
 {
     "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
 };
+
+app.MapGet("/test", async ([FromServices] AppDbContext db, CancellationToken cancel) =>
+{
+    Console.WriteLine("Im still alive");
+    return await db.TreasureMaps.ToListAsync(cancel);
+});
 
 app.MapGet("/weatherforecast", () =>
 {
@@ -80,6 +111,7 @@ app.MapPost("/api/treasure-map/calculate-route", double? ([FromBody] CalculateFa
 });
 
 app.Run();
+
 record Route(Island CurrentIsland, double PassedDistance);
 record Island(int TreasureChest, int X, int Y);
 record CalculateFastestRouteRequest
